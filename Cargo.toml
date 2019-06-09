@@ -5,4 +5,12 @@ authors = ["Wesley Van Melle <wvanmelle@ascentis.com>"]
 edition = "2018"
 
 [dependencies]
+chrono = "0.4.6"
+clap = "2.33"
 handlebars = "2.0.0-beta.2"
+num_cpus = "1.10"
+once_cell = "0.2.1"
+rayon = "1.0.3"
+serde = { version = "1.0.92", features = ["derive"] }
+serde_json = { version = "1.0.39", features = ["preserve_order"] }
+sha2 = "0.8.0"
