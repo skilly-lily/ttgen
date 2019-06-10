@@ -49,6 +49,13 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
                         .required(true),
                 )
                 .arg(
+                    Arg::with_name("FORCE")
+                        .help("Remake all templates, do not check mod times.")
+                        .short("f")
+                        .long("force")
+                        .takes_value(false)
+                )
+                .arg(
                     Arg::with_name("JOBS")
                         .help("Maximum number of parallel jobs to run.  Default or 0 is infinite.")
                         .short("j")
@@ -97,10 +104,13 @@ fn multigen(args: &clap::ArgMatches) -> Result<()> {
     let spec_file = args.value_of("SPEC").unwrap();
     let specs: Vec<TemplateSpec> = serde_json::from_reader(File::open(spec_file)?)?;
     let hb = render::get_renderer();
+
+    let force = args.is_present("FORCE");
+
     specs
         .par_iter()
         .filter_map(|s: &TemplateSpec| {
-            if s.should_build() {
+            if force || s.should_build() {
                 Some((render::render_with(&s, &hb), s))
             } else {
                 println!("skipped: {}", &s.name);

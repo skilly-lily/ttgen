@@ -47,7 +47,7 @@ fn pyprint(
 
 pub fn get_renderer() -> Handlebars {
     let mut hb = Handlebars::new();
-    // hb.set_strict_mode(false);
+    hb.set_strict_mode(true);
     hb.register_template_string("rst_stamp", include_str!("builtins/rst_stamp.hbs"))
         .expect("rst stamp failed to compile");
     hb.register_helper("pyprint", Box::new(pyprint));
@@ -82,6 +82,10 @@ fn create_root_map(spec: &TemplateSpec) -> Result<Map<String, Value>> {
     root_map.insert(
         "root".to_string(),
         serde_json::from_reader(File::open(&spec.data)?)?,
+    );
+    root_map.insert(
+        "rst_stamp".to_string(),
+        Value::from("rst_stamp"),
     );
 
     Ok(root_map)
