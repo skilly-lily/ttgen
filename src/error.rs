@@ -7,25 +7,25 @@ use serde_json::Error as JSONError;
 
 macro_rules! error_impl {
     ( $( $x:ident ),* ) => {
-        pub enum Error {
+        pub enum TTGenError {
             $(
                 $x(Box<$x>),  // Boxed due to variant size differences
             )*
         }
 
         $(
-            impl From<$x> for Error {
+            impl From<$x> for TTGenError {
                 fn from(e: $x) -> Self {
-                    Error::$x(Box::new(e))
+                    TTGenError::$x(Box::new(e))
                 }
             }
         )*
 
-        impl Display for Error {
+        impl Display for TTGenError {
             fn fmt(&self, f: &mut Formatter) -> std::result::Result<(), FmtError> {
                 match self {
                     $(
-                        Error::$x(err) => write!(f, "{}", err),
+                        TTGenError::$x(err) => write!(f, "{}", err),
                     )*
                 }
             }
@@ -59,4 +59,5 @@ error_impl!(
     Missing
 );
 
+pub type Error = TTGenError;
 pub type Result<T> = std::result::Result<T, Error>;

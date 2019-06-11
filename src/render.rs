@@ -1,4 +1,4 @@
-use std::fs::{File};
+use std::fs::File;
 use std::io::{copy, prelude::*};
 use std::path::Path;
 use std::result::Result as StdResult;
@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 use crate::error::*;
-use crate::spec::TemplateSpec;
+use crate::spec::TemplateDef;
 
 static NAME: Lazy<String> = Lazy::new(|| clap::crate_name!().to_string());
 static VERSION: Lazy<String> = Lazy::new(|| clap::crate_version!().to_string());
@@ -61,7 +61,7 @@ fn hash_file<P: AsRef<Path>>(p: P) -> Result<String> {
     Ok(format!("{:x}", hasher.result()))
 }
 
-fn create_root_map(spec: &TemplateSpec) -> Result<Map<String, Value>> {
+fn create_root_map(spec: &TemplateDef) -> Result<Map<String, Value>> {
     let mut root_map = Map::new();
     root_map.insert("name".to_string(), Value::from(&**NAME));
     root_map.insert("version".to_string(), Value::from(&**VERSION));
@@ -83,23 +83,19 @@ fn create_root_map(spec: &TemplateSpec) -> Result<Map<String, Value>> {
         "root".to_string(),
         serde_json::from_reader(File::open(&spec.data)?)?,
     );
-    root_map.insert(
-        "rst_stamp".to_string(),
-        Value::from("rst_stamp"),
-    );
+    root_map.insert("rst_stamp".to_string(), Value::from("rst_stamp"));
 
     Ok(root_map)
 }
 
-pub fn render_with_writer<W: Write>(spec: &TemplateSpec, hb: &Handlebars, writer: &mut W) -> Result<()> {
+pub fn with_writer<W: Write>(spec: &TemplateDef, hb: &Handlebars, writer: &mut W) -> Result<()> {
     let root_map = create_root_map(spec)?;
     let mut tmpl_reader = File::open(&spec.template)?;
     hb.render_template_source_to_write(&mut tmpl_reader, &root_map, writer)?;
     Ok(())
 }
 
-
-pub fn render_with(spec: &TemplateSpec, hb: &Handlebars) -> Result<()> {
+pub fn with(spec: &TemplateDef, hb: &Handlebars) -> Result<()> {
     let mut writer = File::open(&spec.output)?;
-    render_with_writer(spec, hb, &mut writer)
+    with_writer(spec, hb, &mut writer)
 }

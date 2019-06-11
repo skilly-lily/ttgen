@@ -1,16 +1,16 @@
-use std::str::FromStr;
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{prelude::*, stdout};
 use std::path::PathBuf;
+use std::str::FromStr;
 
-use clap::{App, Arg, SubCommand, Shell};
+use clap::{App, Arg, Shell, SubCommand};
 
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPoolBuilder};
 
 use crate::error::*;
 use crate::render;
-use crate::spec::TemplateSpec;
+use crate::spec::TemplateDef;
 
 pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
     clap::app_from_crate!()
@@ -24,7 +24,12 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
         .subcommand(
             SubCommand::with_name("completion")
                 .about("Print shell completions for ttgen, in SHELL format")
-                .arg(Arg::with_name("SHELL").help("Name of shell").possible_values(&Shell::variants()).required(true))
+                .arg(
+                    Arg::with_name("SHELL")
+                        .help("Name of shell")
+                        .possible_values(&Shell::variants())
+                        .required(true),
+                )
                 .arg(Arg::with_name("OUTPUT").default_value("-")),
         )
         .subcommand(
@@ -37,7 +42,7 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
                 )
                 .arg(
                     Arg::with_name("JOBS")
-                        .help("Maximum number of parallel jobs to run.  Default or 0 is infinite.")
+                        .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
                         .short("j")
                         .long("max-jobs")
                         .default_value("0"),
@@ -56,11 +61,11 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
                         .help("Remake all templates, do not check mod times.")
                         .short("f")
                         .long("force")
-                        .takes_value(false)
+                        .takes_value(false),
                 )
                 .arg(
                     Arg::with_name("JOBS")
-                        .help("Maximum number of parallel jobs to run.  Default or 0 is infinite.")
+                        .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
                         .short("j")
                         .long("max-jobs")
                         .default_value("0"),
@@ -82,8 +87,15 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
                         .help("Do not check mod times or existence, assume operation will run.")
                         .short("f")
                         .long("force")
-                        .takes_value(false)
+                        .takes_value(false),
                 )
+                .arg(
+                    Arg::with_name("JOBS")
+                        .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
+                        .short("j")
+                        .long("max-jobs")
+                        .default_value("0"),
+                ),
         )
 }
 
@@ -103,6 +115,28 @@ where
     }
 }
 
+fn set_max_jobs(jobs: &str, queued: usize) {
+    let specified = jobs.parse().unwrap_or_default();
+    let max = num_cpus::get();
+    let actual = if specified == 0 || specified >= max {
+        None
+    } else {
+        Some(std::cmp::min(specified, queued))
+    };
+
+    if let Some(j) = actual {
+        ThreadPoolBuilder::new()
+            .num_threads(j)
+            .build_global()
+            .unwrap_or_else(|e| {
+                eprintln!("Could not build global thread pool: {}", e);
+            });
+        eprintln!("Using max threads: {}", j);
+    } else {
+        eprintln!("Dynamically threading; max: {}", max);
+    }
+}
+
 fn box_writer(s: &str) -> Result<Box<dyn Write>> {
     let writer: Box<dyn Write> = match s {
         "-" => Box::new(stdout()),
@@ -119,7 +153,8 @@ fn box_writer(s: &str) -> Result<Box<dyn Write>> {
 }
 
 fn completion(app: &mut App, args: &clap::ArgMatches) -> Result<()> {
-    let shell: Shell = Shell::from_str(&args.value_of("SHELL").unwrap().to_ascii_uppercase()).unwrap();
+    let shell: Shell =
+        Shell::from_str(&args.value_of("SHELL").unwrap().to_ascii_uppercase()).unwrap();
     let bin_name = clap::crate_name!();
     let mut writer = box_writer(args.value_of("OUTPUT").unwrap())?;
     app.gen_completions_to(bin_name, shell, &mut writer);
@@ -128,8 +163,11 @@ fn completion(app: &mut App, args: &clap::ArgMatches) -> Result<()> {
 
 fn clean(args: &clap::ArgMatches) -> Result<()> {
     let spec_file = args.value_of("SPEC").unwrap();
-    let specs: Vec<TemplateSpec> = serde_json::from_reader(File::open(spec_file)?)?;
-    
+    let specs: Vec<TemplateDef> = serde_json::from_reader(File::open(spec_file)?)?;
+
+    let jobs = args.value_of("JOBS").unwrap_or_default();
+    set_max_jobs(jobs, specs.len());
+
     specs.par_iter().map(|s| &s.output).for_each(|p| {
         if let Err(e) = fs::remove_file(p) {
             eprintln!("failed to remove: {}: error: {}", p.display(), e);
@@ -147,33 +185,35 @@ fn generate(args: &clap::ArgMatches) -> Result<()> {
     let template = args.value_of("TEMPLATE").unwrap();
     let output = args.value_of("OUTPUT").unwrap();
     let mut out_writer = box_writer(output)?;
-    let spec = TemplateSpec::new("Anonymous", data, template, output)?;
+    let spec = TemplateDef::new("Anonymous", data, template, output)?;
     let hb = render::get_renderer();
-    render::render_with_writer(&spec, &hb, &mut out_writer)
+    render::with_writer(&spec, &hb, &mut out_writer)
 }
 
 fn multigen(args: &clap::ArgMatches) -> Result<()> {
     let spec_file = args.value_of("SPEC").unwrap();
-    let specs: Vec<TemplateSpec> = serde_json::from_reader(File::open(spec_file)?)?;
+    let specs: Vec<TemplateDef> = serde_json::from_reader(File::open(spec_file)?)?;
     let hb = render::get_renderer();
 
     let force = args.is_present("FORCE");
 
+    let jobs = args.value_of("JOBS").unwrap_or_default();
+    set_max_jobs(jobs, specs.len());
+
     specs
         .par_iter()
-        .filter_map(|s: &TemplateSpec| {
+        .filter_map(|s: &TemplateDef| {
             if force || s.should_build() {
-                Some((render::render_with(&s, &hb), s))
+                Some((render::with(s, &hb), s))
             } else {
                 println!("skipped: {}", &s.name);
                 None
             }
         })
-        .for_each(|(r, s)| match r {
-            Err(e) => {
+        .for_each(|(r, s)| {
+            if let Err(e) = r {
                 eprintln!("error: {}: {}", s.name, e);
-            }
-            Ok(_) => {
+            } else {
                 println!("success: {}", s.name);
             }
         });
@@ -182,10 +222,13 @@ fn multigen(args: &clap::ArgMatches) -> Result<()> {
 
 fn report(args: &clap::ArgMatches) -> Result<()> {
     let spec_file = args.value_of("SPEC").unwrap();
-    let specs: Vec<TemplateSpec> = serde_json::from_reader(File::open(spec_file)?)?;
+    let specs: Vec<TemplateDef> = serde_json::from_reader(File::open(spec_file)?)?;
     let force = args.is_present("FORCE");
     let command = args.value_of("COMMAND").unwrap();
-    
+
+    let jobs = args.value_of("JOBS").unwrap_or_default();
+    set_max_jobs(jobs, specs.len());
+
     match command {
         "clean" => {
             specs.par_iter().map(|s| &s.output).for_each(|p| {
@@ -193,20 +236,18 @@ fn report(args: &clap::ArgMatches) -> Result<()> {
                     println!("Would remove: {}", p.display());
                 }
             });
-        },
-        "multigen" => {
-            specs.par_iter().for_each(|s| {
-                if force || s.should_build() {
-                    println!("Would build: {}", s.output.display());
-                } else {
-                    println!("Would skip: {}", s.output.display());                    
-                }
-            })
-        },
+        }
+        "multigen" => specs.par_iter().for_each(|s| {
+            if force || s.should_build() {
+                println!("Would build: {}", s.output.display());
+            } else {
+                println!("Would skip: {}", s.output.display());
+            }
+        }),
         "count" => {
             println!("{}", specs.len());
-        },
-        _ => unreachable!()
+        }
+        _ => unreachable!(),
     };
 
     Ok(())

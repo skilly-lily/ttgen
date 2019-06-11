@@ -14,10 +14,10 @@ pub enum OutputStatus {
     CannotDetermine(IOError),
 }
 
-use OutputStatus::*;
+use OutputStatus::{CannotDetermine, FileMissing, OutOfDate, UpToDate};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct TemplateSpec {
+pub struct TemplateDef {
     pub name: String,
     pub data: PathBuf,
     pub template: PathBuf,
@@ -28,24 +28,19 @@ fn get_mod_time(p: impl AsRef<Path>) -> Result<SystemTime, IOError> {
     metadata(p)?.modified()
 }
 
-impl TemplateSpec {
+impl TemplateDef {
     pub fn new<S, P>(name: S, data: P, template: P, output: P) -> Result<Self, Missing>
     where
         P: Into<PathBuf>,
         S: Into<String>,
     {
-        let spec = Self::new_unchecked(
-            name.into(),
-            data.into(),
-            template.into(),
-            output.into(),
-        );
+        let spec = Self::new_unchecked(name.into(), data.into(), template.into(), output.into());
 
         spec.validate_files()?;
         Ok(spec)
     }
 
-    pub fn new_unchecked(
+    pub const fn new_unchecked(
         name: String,
         data: PathBuf,
         template: PathBuf,
@@ -127,7 +122,7 @@ mod test {
 
     #[test]
     fn deser_single() {
-        let actual: TemplateSpec = serde_json::from_value(serde_json::json!({
+        let actual: TemplateDef = serde_json::from_value(serde_json::json!({
             "name": "example",
             "data": "example.json",
             "template": "example.hbs",
@@ -135,7 +130,7 @@ mod test {
         }))
         .unwrap();
 
-        let expected = TemplateSpec::new_unchecked(
+        let expected = TemplateDef::new_unchecked(
             "example".into(),
             "example.json".into(),
             "example.hbs".into(),

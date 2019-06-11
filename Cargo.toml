@@ -3,6 +3,15 @@ name = "ttgen"
 version = "1.0.0-alpha"
 authors = ["Wesley Van Melle <wvanmelle@ascentis.com>"]
 edition = "2018"
+license = "MIT"
+readme = "README.md"
+repository = "private"
+keywords = ["parallel", "templating", "template", "cli", "json", "text"]
+categories = ["command-line-utilities", "template-engine"]
+description = """
+Textfile-powered text generation utility.  Features include parallel
+generation, timestamp comparison, shell completions, auto cleaner, and
+specification querying."""
 
 [dependencies]
 chrono = "0.4.6"
