@@ -18,10 +18,10 @@ static DATESTAMP: Lazy<String> = Lazy::new(|| Utc::now().to_rfc3339());
 
 fn pyprint(
     h: &Helper,
-    _hb: &Handlebars,
-    _c: &Context,
-    _rc: &mut RenderContext,
-    out: &mut Output,
+    _: &Handlebars,
+    _: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output,
 ) -> StdResult<(), RenderError> {
     let value = h
         .param(0)
