@@ -1,5 +1,5 @@
-use std::fs::{self, File};
-use std::io::{copy, prelude::*, stdout};
+use std::fs::{File};
+use std::io::{copy, prelude::*};
 use std::path::Path;
 use std::result::Result as StdResult;
 
@@ -91,18 +91,15 @@ fn create_root_map(spec: &TemplateSpec) -> Result<Map<String, Value>> {
     Ok(root_map)
 }
 
-pub fn render_with(spec: &TemplateSpec, hb: &Handlebars) -> Result<()> {
+pub fn render_with_writer<W: Write>(spec: &TemplateSpec, hb: &Handlebars, writer: &mut W) -> Result<()> {
     let root_map = create_root_map(spec)?;
-    let out_writer: Box<dyn Write> = match &spec.output {
-        Some(output) => {
-            if let Some(p) = &output.parent() {
-                fs::create_dir_all(p)?;
-            };
-            Box::new(File::create(output)?)
-        }
-        None => Box::new(stdout()),
-    };
     let mut tmpl_reader = File::open(&spec.template)?;
-    hb.render_template_source_to_write(&mut tmpl_reader, &root_map, out_writer)?;
+    hb.render_template_source_to_write(&mut tmpl_reader, &root_map, writer)?;
     Ok(())
+}
+
+
+pub fn render_with(spec: &TemplateSpec, hb: &Handlebars) -> Result<()> {
+    let mut writer = File::open(&spec.output)?;
+    render_with_writer(spec, hb, &mut writer)
 }

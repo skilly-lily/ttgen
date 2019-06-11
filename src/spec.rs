@@ -11,7 +11,6 @@ pub enum OutputStatus {
     UpToDate,
     FileMissing,
     OutOfDate,
-    Forced,
     CannotDetermine(IOError),
 }
 
@@ -22,7 +21,7 @@ pub struct TemplateSpec {
     pub name: String,
     pub data: PathBuf,
     pub template: PathBuf,
-    pub output: Option<PathBuf>,
+    pub output: PathBuf,
 }
 
 fn get_mod_time(p: impl AsRef<Path>) -> Result<SystemTime, IOError> {
@@ -30,7 +29,7 @@ fn get_mod_time(p: impl AsRef<Path>) -> Result<SystemTime, IOError> {
 }
 
 impl TemplateSpec {
-    pub fn new<S, P>(name: S, data: P, template: P, output: Option<P>) -> Result<Self, Missing>
+    pub fn new<S, P>(name: S, data: P, template: P, output: P) -> Result<Self, Missing>
     where
         P: Into<PathBuf>,
         S: Into<String>,
@@ -39,7 +38,7 @@ impl TemplateSpec {
             name.into(),
             data.into(),
             template.into(),
-            output.map(|x| x.into()),
+            output.into(),
         );
 
         spec.validate_files()?;
@@ -50,7 +49,7 @@ impl TemplateSpec {
         name: String,
         data: PathBuf,
         template: PathBuf,
-        output: Option<PathBuf>,
+        output: PathBuf,
     ) -> Self {
         Self {
             name,
@@ -88,18 +87,11 @@ impl TemplateSpec {
     }
 
     pub fn up_to_date(&self) -> OutputStatus {
-        let output = match &self.output {
-            Some(o) => o,
-            None => {
-                return Forced;
-            }
-        };
-
-        if !output.exists() {
+        if !self.output.exists() {
             return FileMissing;
         }
 
-        let output_modified = match get_mod_time(&output) {
+        let output_modified = match get_mod_time(&self.output) {
             Ok(t) => t,
             Err(e) => {
                 return CannotDetermine(e);
@@ -147,7 +139,7 @@ mod test {
             "example".into(),
             "example.json".into(),
             "example.hbs".into(),
-            Some("example.rst".into()),
+            "example.rst".into(),
         );
 
         assert_eq!(actual, expected);
