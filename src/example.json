@@ -1,0 +1,8 @@
+[
+    {
+        "name": "example",
+        "data": "example.json",
+        "template": "example.hbs",
+        "output": "example.txt"
+    }
+]

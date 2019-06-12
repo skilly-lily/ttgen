@@ -121,6 +121,9 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
                     )
                 )
         )
+        .subcommand(
+            SubCommand::with_name("example")
+        )
 }
 
 pub fn parse_args<I, T>(a: &mut App, arg_iter: I) -> Result<()>
@@ -135,6 +138,7 @@ where
         ("report", Some(args)) => report(args),
         ("clean", Some(args)) => clean(args),
         ("completion", Some(args)) => completion(a, args),
+        ("example", _) => example(),
         _ => unimplemented!(),
     }
 }
@@ -244,35 +248,44 @@ fn multigen(args: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn report(args: &clap::ArgMatches) -> Result<()> {
+fn report(upper_args: &clap::ArgMatches) -> Result<()> {
+    let (name, args) = match upper_args.subcommand() {
+        (name, Some(args)) => (name, args),
+        _ => unreachable!()
+    };
+
     let spec_file = args.value_of("SPEC").unwrap();
     let specs: Vec<TemplateDef> = serde_json::from_reader(File::open(spec_file)?)?;
     let force = args.is_present("FORCE");
-    let command = args.value_of("COMMAND").unwrap();
 
     let jobs = args.value_of("JOBS").unwrap_or_default();
     set_max_jobs(jobs, specs.len());
 
-    match command {
+    match name {
         "clean" => {
             specs.par_iter().map(|s| &s.output).for_each(|p| {
                 if p.exists() {
                     println!("Would remove: {}", p.display());
                 }
             });
-        }
-        "multigen" => specs.par_iter().for_each(|s| {
-            if force || s.should_build() {
-                println!("Would build: {}", s.output.display());
-            } else {
-                println!("Would skip: {}", s.output.display());
-            }
-        }),
-        "count" => {
-            println!("{}", specs.len());
-        }
-        _ => unreachable!(),
+        },
+        "multigen" => {
+            specs.par_iter().for_each(|s| {
+                if force || s.should_build() {
+                    println!("Would build: {}", s.output.display());
+                } else {
+                    println!("Would skip: {}", s.output.display());
+                }
+            });
+        },
+        "count" => {println!("{}", specs.len());}
+        _ => unreachable!()
     };
 
+    Ok(())
+}
+
+fn example() -> Result<()> {
+    println!("{}", include_str!("example.json"));
     Ok(())
 }
