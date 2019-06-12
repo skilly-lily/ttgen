@@ -2,6 +2,8 @@
 
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate log;
 
 use std::env::args_os;
 use std::fmt::Display;
@@ -22,6 +24,8 @@ fn exit<D: Display>(msg: D, exitcode: i32) -> ! {
 }
 
 fn main() {
+    env_logger::init();
+
     let mut app = cli::get_parser();
     if let Err(e) = cli::parse_args(&mut app, args_os()) {
         exit(e, 1);

@@ -157,11 +157,11 @@ fn set_max_jobs(jobs: &str, queued: usize) {
             .num_threads(j)
             .build_global()
             .unwrap_or_else(|e| {
-                eprintln!("Could not build global thread pool: {}", e);
+                warn!("Could not build global thread pool: {}", e);
             });
-        eprintln!("Using max threads: {}", j);
+        debug!("Using max threads: {}", j);
     } else {
-        eprintln!("Dynamically threading; max: {}", max);
+        debug!("Dynamically threading; max: {}", max);
     }
 }
 
