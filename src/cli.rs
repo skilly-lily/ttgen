@@ -75,27 +75,51 @@ pub(crate) fn get_parser<'a, 'b>() -> App<'a, 'b> {
             SubCommand::with_name("report")
                 .aliases(&["dry-run", "query"])
                 .about("Analyze SPEC and report based on COMMAND")
-                // .usage("ttgen report COMMAND SPEC")
-                .arg(Arg::with_name("COMMAND").possible_values(&["clean", "multigen", "count"]))
-                .arg(
-                    Arg::with_name("SPEC")
-                        .help("A ttgen-spec file describing all of the templates to examine.")
-                        .required(true),
+                .subcommand(SubCommand::with_name("clean")
+                    .about("Report which files would be removed during clean")
+                    .arg(
+                        Arg::with_name("SPEC")
+                            .help("A ttgen-spec file describing all of the templates to examine.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("JOBS")
+                            .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
+                            .short("j")
+                            .long("max-jobs")
+                            .default_value("0"),
+                    )
                 )
-                .arg(
-                    Arg::with_name("FORCE")
-                        .help("Do not check mod times or existence, assume operation will run.")
-                        .short("f")
-                        .long("force")
-                        .takes_value(false),
+                .subcommand(SubCommand::with_name("multigen")
+                    .about("Report which files would be generated during multigen")
+                    .arg(
+                        Arg::with_name("SPEC")
+                            .help("A ttgen-spec file describing all of the templates to examine.")
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("JOBS")
+                            .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
+                            .short("j")
+                            .long("max-jobs")
+                            .default_value("0"),
+                    )
+                    .arg(
+                        Arg::with_name("FORCE")
+                            .help("Do not check mod times or existence, assume operation will run.")
+                            .short("f")
+                            .long("force")
+                            .takes_value(false),
+                    )
                 )
-                .arg(
-                    Arg::with_name("JOBS")
-                        .help("Maximum number of parallel jobs to run.  Default (0) is infinite.")
-                        .short("j")
-                        .long("max-jobs")
-                        .default_value("0"),
-                ),
+                .subcommand(SubCommand::with_name("count")
+                    .about("report number of templates in SPEC")
+                    .arg(
+                        Arg::with_name("SPEC")
+                            .help("A ttgen-spec file describing all of the templates to examine.")
+                            .required(true),
+                    )
+                )
         )
 }
 
