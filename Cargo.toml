@@ -1,6 +1,6 @@
 [package]
 name = "ttgen"
-version = "1.0.0-alpha"
+version = "1.0.0-beta"
 authors = ["Wesley Van Melle <wvanmelle@ascentis.com>"]
 edition = "2018"
 license = "MIT"
