@@ -96,6 +96,6 @@ pub fn with_writer<W: Write>(spec: &TemplateDef, hb: &Handlebars, writer: &mut W
 }
 
 pub fn with(spec: &TemplateDef, hb: &Handlebars) -> Result<()> {
-    let mut writer = File::open(&spec.output)?;
+    let mut writer = File::create(&spec.output)?;
     with_writer(spec, hb, &mut writer)
 }
